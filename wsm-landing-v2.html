@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Wall Street Marathi – AI Indicator</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --g: #00c853;
+  --g2: #69f0ae;
+  --gold: #ffd54f;
+  --gold2: #ffecb3;
+  --bg: #050810;
+  --bg2: #0a0e1a;
+  --card: rgba(255,255,255,0.035);
+  --border: rgba(255,255,255,0.08);
+  --text: #f0f2ff;
+  --muted: #6b7599;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Background ── */
+.bg-wrap {
+  position: fixed; inset: 0; z-index: 0;
+  overflow: hidden;
+}
+
+.bg-mesh {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 70% 50% at 20% 10%, rgba(0,200,83,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 60% at 80% 90%, rgba(255,213,79,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 80% at 50% 50%, rgba(10,14,26,1) 40%, transparent 100%);
+}
+
+/* Grid lines */
+.grid-lines {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 90% 90% at 50% 50%, black 30%, transparent 100%);
+}
+
+/* Animated chart wave at bottom */
+.wave-svg {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  width: 100%; height: 160px;
+  opacity: 0.18;
+}
+
+/* Scanning line */
+.scan-line {
+  position: absolute;
+  left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(0,200,83,0.5) 20%, rgba(255,213,79,0.6) 50%, rgba(0,200,83,0.5) 80%, transparent 100%);
+  animation: scan 5s ease-in-out infinite;
+  top: 0;
+}
+@keyframes scan {
+  0%   { top: -2px; opacity: 0; }
+  5%   { opacity: 1; }
+  95%  { opacity: 0.6; }
+  100% { top: 100%; opacity: 0; }
+}
+
+/* Floating dots */
+.dot {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: rise linear infinite;
+}
+@keyframes rise {
+  0%   { transform: translateY(0) scale(0); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 0.4; }
+  100% { transform: translateY(-100vh) scale(1.5); opacity: 0; }
+}
+
+/* ── MAIN ── */
+.page {
+  position: relative; z-index: 10;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px 52px;
+  gap: 0;
+}
+
+/* Status bar */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 26px;
+  animation: up 0.7s ease 0s both;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(0,200,83,0.3);
+  background: rgba(0,200,83,0.08);
+  border-radius: 100px;
+  padding: 5px 14px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--g2);
+}
+
+.blink-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--g2);
+  animation: bdot 1.3s ease-in-out infinite;
+}
+@keyframes bdot {
+  0%,100% { opacity: 1; box-shadow: 0 0 6px var(--g2); }
+  50%      { opacity: 0.2; box-shadow: none; }
+}
+
+.sebi-tag {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 1px;
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 5px 12px;
+}
+
+/* Logo */
+.logo-area {
+  position: relative;
+  margin-bottom: 20px;
+  animation: up 0.7s ease 0.1s both;
+}
+
+/* Outer ring spin */
+.ring-outer {
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  border: 1px dashed rgba(255,213,79,0.35);
+  animation: rspin 12s linear infinite;
+}
+@keyframes rspin { to { transform: rotate(360deg); } }
+
+/* Inner pulse ring */
+.ring-inner {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0,200,83,0.5);
+  animation: rpulse 2.5s ease-in-out infinite;
+}
+@keyframes rpulse {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(1.05); }
+}
+
+/* Corner dots on ring */
+.ring-outer::before,
+.ring-outer::after {
+  content: '';
+  position: absolute;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
+  top: 50%; left: -3.5px;
+  transform: translateY(-50%);
+  box-shadow: 0 0 8px var(--gold);
+}
+.ring-outer::after {
+  left: auto; right: -3.5px;
+}
+
+.logo-img {
+  width: 96px; height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  border: 2.5px solid #0a0e1a;
+  background: #0a0e1a;
+}
+
+/* Name block */
+.name-block {
+  text-align: center;
+  margin-bottom: 6px;
+  animation: up 0.7s ease 0.18s both;
+}
+
+.name-top {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(30px, 7.5vw, 56px);
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -0.5px;
+  color: #fff;
+}
+
+.name-bottom {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(30px, 7.5vw, 56px);
+  font-weight: 700;
+  line-height: 1.05;
+  background: linear-gradient(110deg, var(--gold) 0%, var(--gold2) 50%, var(--g2) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-size: 200% 200%;
+  animation: gradshift 4s ease infinite;
+}
+@keyframes gradshift {
+  0%,100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+
+.by-line {
+  font-size: 11px;
+  letter-spacing: 3.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 4px;
+  font-weight: 400;
+  animation: up 0.7s ease 0.22s both;
+}
+
+/* Divider */
+.hr-line {
+  width: 100px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,213,79,0.5), rgba(0,200,83,0.5), transparent);
+  margin: 16px auto;
+  animation: up 0.7s ease 0.28s both;
+}
+
+/* Tags row */
+.tags-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+  animation: up 0.7s ease 0.33s both;
+}
+
+.tag-chip {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(240,242,255,0.65);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 5px 13px;
+  letter-spacing: 0.3px;
+  background: rgba(255,255,255,0.03);
+}
+
+.tag-chip.accent {
+  border-color: rgba(0,200,83,0.3);
+  color: var(--g2);
+  background: rgba(0,200,83,0.06);
+}
+
+/* AI Signal card */
+.signal-card {
+  width: 100%;
+  max-width: 340px;
+  background: linear-gradient(135deg, rgba(255,213,79,0.06) 0%, rgba(0,200,83,0.04) 100%);
+  border: 1px solid rgba(255,213,79,0.18);
+  border-radius: 18px;
+  padding: 14px 22px;
+  text-align: center;
+  margin-bottom: 18px;
+  position: relative;
+  overflow: hidden;
+  animation: up 0.7s ease 0.38s both;
+}
+
+.signal-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 15%; right: 15%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,213,79,0.6), transparent);
+}
+
+/* Shimmer sweep */
+.signal-card::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; left: -100%;
+  width: 60%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+  animation: sweep 3.5s ease-in-out 2s infinite;
+}
+@keyframes sweep {
+  0%   { left: -100%; }
+  100% { left: 180%; }
+}
+
+.signal-eyebrow {
+  font-size: 9px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.signal-heading {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.flash-icon {
+  display: inline-flex;
+  width: 22px; height: 22px;
+  background: var(--gold);
+  border-radius: 6px;
+  align-items: center;
+  justify-content: center;
+  animation: flashpulse 1.8s ease-in-out infinite;
+}
+@keyframes flashpulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(255,213,79,0.5); }
+  50%      { box-shadow: 0 0 0 6px rgba(255,213,79,0); }
+}
+
+.flash-icon svg { width: 13px; height: 13px; fill: #0a0e1a; }
+
+/* Subs row */
+.subs-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 24px;
+  animation: up 0.7s ease 0.43s both;
+}
+
+.subs-num {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+}
+
+.subs-label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.subs-sep {
+  width: 1px; height: 28px;
+  background: var(--border);
+}
+
+/* ── CTA BUTTON ── */
+.cta-outer {
+  animation: up 0.7s ease 0.5s both;
+  position: relative;
+}
+
+/* Orbit ring around button */
+.btn-orbit {
+  position: absolute;
+  inset: -10px;
+  border-radius: 100px;
+  border: 1px solid rgba(0,200,83,0.2);
+  animation: orbitp 3s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes orbitp {
+  0%,100% { transform: scale(1); opacity: 0.5; }
+  50%      { transform: scale(1.04); opacity: 1; }
+}
+
+.cta-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(135deg, #ffd54f 0%, #ffca28 50%, #ffb300 100%);
+  color: #0a0e1a;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  text-decoration: none;
+  padding: 16px 38px;
+  border-radius: 100px;
+  border: none;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(255,213,79,0.4),
+    0 8px 40px rgba(255,193,7,0.3),
+    0 2px 8px rgba(0,0,0,0.4);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Shine sweep */
+.cta-btn::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; left: -80%;
+  width: 50%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  transform: skewX(-18deg);
+  animation: btnshine 2.8s ease-in-out 1s infinite;
+}
+@keyframes btnshine {
+  0%   { left: -80%; }
+  60%  { left: 160%; }
+  100% { left: 160%; }
+}
+
+/* Top gloss */
+.cta-btn::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, transparent 100%);
+  border-radius: 100px 100px 0 0;
+  pointer-events: none;
+}
+
+.cta-btn:hover {
+  transform: translateY(-4px) scale(1.03);
+  box-shadow:
+    0 0 0 1px rgba(255,213,79,0.6),
+    0 12px 50px rgba(255,193,7,0.45),
+    0 4px 12px rgba(0,0,0,0.5);
+}
+
+.cta-btn:active {
+  transform: translateY(0) scale(0.975);
+  transition-duration: 0.08s;
+}
+
+.tg-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  background: rgba(10,14,26,0.2);
+  border-radius: 50%;
+}
+.tg-icon-wrap svg { width: 15px; height: 15px; fill: #0a0e1a; }
+
+/* Sub text */
+.btn-sub {
+  text-align: center;
+  margin-top: 11px;
+  font-size: 10.5px;
+  color: rgba(107,117,153,0.7);
+  letter-spacing: 0.5px;
+  animation: up 0.7s ease 0.56s both;
+}
+
+/* Credit */
+.credit {
+  position: fixed;
+  bottom: 14px; left: 0; right: 0;
+  text-align: center;
+  font-size: 10px;
+  color: rgba(107,117,153,0.45);
+  letter-spacing: 0.4px;
+  z-index: 20;
+  animation: up 0.7s ease 0.7s both;
+}
+.credit a {
+  color: var(--gold);
+  text-decoration: none;
+  font-weight: 600;
+}
+.credit a:hover { opacity: 0.75; }
+
+@keyframes up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+</style>
+</head>
+<body>
+
+<!-- Background -->
+<div class="bg-wrap">
+  <div class="bg-mesh"></div>
+  <div class="grid-lines"></div>
+  <div class="scan-line"></div>
+
+  <!-- Chart wave -->
+  <svg class="wave-svg" viewBox="0 0 1440 160" preserveAspectRatio="none" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="wg" x1="0" y1="0" x2="1440" y2="0" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="rgba(0,200,83,0)"/>
+        <stop offset="30%" stop-color="rgba(0,200,83,0.7)"/>
+        <stop offset="60%" stop-color="rgba(255,213,79,0.8)"/>
+        <stop offset="85%" stop-color="rgba(0,200,83,0.7)"/>
+        <stop offset="100%" stop-color="rgba(0,200,83,0)"/>
+      </linearGradient>
+      <linearGradient id="wg2" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+        <stop offset="0%" stop-color="rgba(0,200,83,0.15)"/>
+        <stop offset="100%" stop-color="rgba(0,200,83,0)"/>
+      </linearGradient>
+    </defs>
+    <path d="M0 130 Q120 90 240 110 T480 80 T720 50 T960 75 T1200 45 T1440 70 L1440 160 L0 160Z" fill="url(#wg2)"/>
+    <path d="M0 130 Q120 90 240 110 T480 80 T720 50 T960 75 T1200 45 T1440 70" stroke="url(#wg)" stroke-width="1.5" fill="none"/>
+  </svg>
+
+  <!-- Dots -->
+  <div id="dots"></div>
+</div>
+
+<!-- Main Content -->
+<div class="page">
+
+  <!-- Status bar -->
+  <div class="status-bar">
+    <div class="status-pill">
+      <span class="blink-dot"></span>
+      AI Indicator Live
+    </div>
+    <div class="sebi-tag">SEBI Registered</div>
+  </div>
+
+  <!-- Logo -->
+  <div class="logo-area">
+    <div class="ring-outer"></div>
+    <div class="ring-inner"></div>
+    <img class="logo-img"
+      src="https://fantasticczone.site/wp-content/uploads/2026/05/098f.jpg"
+      alt="Wall Street Marathi"
+      onerror="this.style.background='#111827'">
+  </div>
+
+  <!-- Name -->
+  <div class="name-block">
+    <div class="name-top">Wall Street</div>
+    <div class="name-bottom">Marathi</div>
+  </div>
+  <div class="by-line">by Pruthviraj Nikam</div>
+
+  <div class="hr-line"></div>
+
+  <!-- Tags -->
+  <div class="tags-row">
+    <div class="tag-chip">Investor</div>
+    <div class="tag-chip">Intraday Trader</div>
+    <div class="tag-chip accent">Learning · Trading · Growing</div>
+  </div>
+
+  <!-- AI Signal Card -->
+  <div class="signal-card">
+    <div class="signal-eyebrow">Exclusive Access</div>
+    <div class="signal-heading">
+      <span class="flash-icon">
+        <svg viewBox="0 0 24 24"><path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z"/></svg>
+      </span>
+      Smart AI-Powered Trading Signals
+    </div>
+  </div>
+
+  <!-- Subscribers -->
+  <div class="subs-row">
+    <div>
+      <div class="subs-num">28,157</div>
+    </div>
+    <div class="subs-sep"></div>
+    <div class="subs-label">Active<br>Subscribers</div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-outer">
+    <div class="btn-orbit"></div>
+    <a class="cta-btn" href="https://t.me/+GTGlTbgbZP8wMTE1" target="_blank" rel="noopener">
+      <span class="tg-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.16 13.947l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.988.612z"/></svg>
+      </span>
+      Join Telegram Channel
+    </a>
+  </div>
+  <div class="btn-sub">Free to join &nbsp;·&nbsp; No spam &nbsp;·&nbsp; Daily signals</div>
+
+</div>
+
+<!-- Credit -->
+<div class="credit">
+  Ads managed by
+  <a href="https://t.me/+TRlJl628l-FkMWE9" target="_blank">@Nexgroww_agency</a>
+</div>
+
+<script>
+  const wrap = document.getElementById('dots');
+  for (let i = 0; i < 28; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot';
+    const s = Math.random() * 3.5 + 1;
+    const gold = Math.random() > 0.55;
+    d.style.cssText = `
+      width:${s}px; height:${s}px;
+      left:${Math.random()*100}%;
+      bottom:0;
+      background:${gold ? 'rgba(255,213,79,0.65)' : 'rgba(0,200,83,0.55)'};
+      animation-duration:${7 + Math.random()*9}s;
+      animation-delay:${Math.random()*10}s;
+    `;
+    wrap.appendChild(d);
+  }
+</script>
+</body>
+</html>
